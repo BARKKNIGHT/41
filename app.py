@@ -445,10 +445,15 @@ def index():
             frames_dir = os.path.join(app.config["FRAMES_FOLDER"], video_id)
             os.makedirs(frames_dir, exist_ok=True)
             # Save video ownership in DB
-            db.execute(
-                "INSERT INTO videos (id, filename, user_id) VALUES (?, ?, ?)",
-                video_id, video_filename, user_id
-            )
+            try:
+                db.execute(
+                    "INSERT INTO videos (id, filename, user_id) VALUES (?, ?, ?)",
+                    video_id, video_filename, user_id
+                )
+            except Exception as e:
+                print(f"[ERROR] Failed to insert video into DB: {e}")
+                flash("Failed to save video info to database.", "danger")
+                return redirect(request.url)
             # Start background processing
             threading.Thread(
                 target=process_video, args=(video_id, video_path, frames_dir)
