@@ -122,27 +122,27 @@ def register():
         verify_link = url_for("verify_email", token=verify_token, _external=True)
         plain_body = f"Click the link to verify your account: {verify_link}"
         html_body = f"""
-        <html>
-        <head>
-            <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css' rel='stylesheet'>
-        </head>
-        <body class='bg-light'>
-            <div class='container py-5'>
-                <div class='card shadow-sm mx-auto' style='max-width: 480px;'>
-                    <div class='card-body'>
-                        <h2 class='card-title mb-3 text-center'>Verify your account</h2>
-                        <p class='mb-4'>Thank you for registering! Please click the button below to verify your email address and activate your account.</p>
-                        <div class='d-grid'>
-                            <a href='{verify_link}' class='btn btn-primary btn-lg'>Verify Account</a>
-                        </div>
-                        <hr class='my-4'>
-                        <p class='small text-muted'>If you did not request this, you can safely ignore this email.</p>
-                    </div>
-                </div>
-            </div>
-        </body>
-        </html>
-        """
+<html>
+  <body style="background-color:#f8f9fa; margin:0; padding:0;">
+    <div style="max-width:480px; margin:40px auto; background:#fff; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.05); padding:32px;">
+      <h2 style="text-align:center; color:#212529; margin-bottom:24px;">Verify your account</h2>
+      <p style="color:#495057; margin-bottom:24px;">
+        Thank you for registering! Please click the button below to verify your email address and activate your account.
+      </p>
+      <div style="text-align:center; margin-bottom:32px;">
+        <a href="{verify_link}" style="display:inline-block; background:#0d6efd; color:#fff; text-decoration:none; font-size:18px; padding:12px 32px; border-radius:6px;">
+          Verify Account
+        </a>
+      </div>
+      <hr style="border:none; border-top:1px solid #dee2e6; margin:32px 0;">
+      <p style="color:#adb5bd; font-size:14px; text-align:center;">
+        If you did not request this, you can safely ignore this email.
+      </p>
+    </div>
+  </body>
+</html>
+"""
+
         send_email(
             email,
             "Verify your account",
