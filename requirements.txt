@@ -1,0 +1,12 @@
+docx==0.2.4
+Flask==3.1.0
+Flask_Login==0.6.3
+flask_mail==0.10.0
+flask_sqlalchemy==3.1.1
+fpdf==1.7.2
+itsdangerous==2.2.0
+openai==1.74.0
+opencv_contrib_python==4.11.0.86
+opencv_python==4.11.0.86
+python_docx==1.1.2
+Werkzeug==3.1.3

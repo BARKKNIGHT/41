@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Processing Video - Video Analyzer{% endblock %}
+
+{% block content %}
+<div class="text-center">
+  <h2 class="mb-4 text-primary">Processing your video...</h2>
+  <p id="status-text" class="mb-3 fs-5">Queued</p>
+  <div class="progress" style="height: 30px; max-width: 600px; margin: 0 auto;">
+    <div
+      id="progress-bar"
+      class="progress-bar progress-bar-striped progress-bar-animated"
+      role="progressbar"
+      style="width: 0%"
+      aria-valuemin="0"
+      aria-valuemax="100"
+    >0%</div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function checkStatus() {
+    fetch("{{ url_for('status') }}")
+      .then((res) => res.json())
+      .then((data) => {
+        document.getElementById("status-text").innerText = data.status;
+        const progressBar = document.getElementById("progress-bar");
+        progressBar.style.width = data.progress + "%";
+        progressBar.innerText = data.progress + "%";
+
+        if (data.status === "Done") {
+          window.location.href = "{{ url_for('results') }}";
+        } else if (data.status.startsWith("Error")) {
+          alert(data.status);
+          window.location.href = "{{ url_for('index') }}";
+        } else {
+          setTimeout(checkStatus, 2000);
+        }
+      })
+      .catch(() => {
+        alert("Error checking status.");
+        window.location.href = "{{ url_for('index') }}";
+      });
+  }
+  window.onload = checkStatus;
+</script>
+{% endblock %}
