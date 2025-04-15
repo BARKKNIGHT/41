@@ -93,11 +93,11 @@ def send_email(to, subject, body, html_body=None):
     if html_body:
         msg.add_alternative(html_body, subtype="html")
     context = ssl.create_default_context()
-    with smtplib.SMTP(MAIL_SERVER, MAIL_PORT) as server:
+    with smtplib.SMTP(MAIL_SERVER, MAIL_PORT, timeout=10) as server:
         server.starttls(context=context)
         server.login(MAIL_USERNAME, MAIL_PASSWORD)
         server.send_message(msg)
-
+        print("Sent!")
 # --- Auth Routes ---
 
 @app.route("/register", methods=["GET", "POST"])
