@@ -198,10 +198,34 @@ def forgot():
         reset_token = str(uuid.uuid4())
         db.execute("UPDATE users SET reset_token = ? WHERE email = ?", reset_token, email)
         reset_link = url_for("reset_password", token=reset_token, _external=True)
+        plain_body = f"Click the link to reset your password: {reset_link}"
+        html_body = f"""
+        <html>
+        <head>
+            <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css' rel='stylesheet'>
+        </head>
+        <body class='bg-light'>
+            <div class='container py-5'>
+                <div class='card shadow-sm mx-auto' style='max-width: 480px;'>
+                    <div class='card-body'>
+                        <h2 class='card-title mb-3 text-center'>Password Reset Request</h2>
+                        <p class='mb-4'>We received a request to reset your password. Click the button below to set a new password for your account.</p>
+                        <div class='d-grid'>
+                            <a href='{reset_link}' class='btn btn-primary btn-lg'>Reset Password</a>
+                        </div>
+                        <hr class='my-4'>
+                        <p class='small text-muted'>If you did not request a password reset, you can safely ignore this email.</p>
+                    </div>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
         send_email(
             email,
             "Password Reset",
-            f"Click the link to reset your password: {reset_link}"
+            plain_body,
+            html_body=html_body
         )
         flash("If the email exists, a reset link will be sent.", "info")
         return redirect(url_for("login"))
