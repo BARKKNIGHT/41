@@ -18,10 +18,17 @@ from flask import (
     jsonify,
     flash,
     after_this_request,
+    session,
 )
 import openai
 from fpdf import FPDF
 from docx import Document
+import smtplib
+import ssl
+from cs50 import SQL
+from werkzeug.security import generate_password_hash, check_password_hash
+from email.message import EmailMessage
+from functools import wraps
 
 # --- Config ---
 UPLOAD_FOLDER = "static/uploads"
@@ -39,6 +46,200 @@ app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(FRAMES_FOLDER, exist_ok=True)
+
+# --- Email Config ---
+MAIL_SERVER = "mail.privateemail.com"
+MAIL_PORT = 587
+MAIL_USERNAME = os.getenv("MAIL_USERNAME")  # Set in your environment
+MAIL_PASSWORD = os.getenv("MAIL_PASSWORD")  # Set in your environment
+MAIL_FROM = MAIL_USERNAME
+
+# --- CS50 SQL DB ---
+DB_PATH = os.path.join(os.path.dirname(__file__), 'app.db')
+if not os.path.exists(DB_PATH):
+    open(DB_PATH, 'a').close()
+db = SQL(f"sqlite:///{DB_PATH}")
+
+def init_db():
+    db.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL UNIQUE,
+            email TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL,
+            is_verified INTEGER DEFAULT 0,
+            verify_token TEXT,
+            reset_token TEXT
+        )
+    """)
+    db.execute("""
+        CREATE TABLE IF NOT EXISTS videos (
+            id TEXT PRIMARY KEY,
+            filename TEXT NOT NULL,
+            user_id INTEGER NOT NULL,
+            uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+init_db()
+
+# --- Email Sending Helper ---
+def send_email(to, subject, body, html_body=None):
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = MAIL_FROM
+    msg["To"] = to
+    msg.set_content(body)
+    if html_body:
+        msg.add_alternative(html_body, subtype="html")
+    context = ssl.create_default_context()
+    with smtplib.SMTP(MAIL_SERVER, MAIL_PORT) as server:
+        server.starttls(context=context)
+        server.login(MAIL_USERNAME, MAIL_PASSWORD)
+        server.send_message(msg)
+
+# --- Auth Routes ---
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == "POST":
+        username = request.form.get("username")
+        email = request.form.get("email")
+        password = request.form.get("password")
+        if not username or not email or not password:
+            flash("All fields required.", "danger")
+            return redirect(url_for("register"))
+        if db.execute("SELECT * FROM users WHERE username = ? OR email = ?", username, email):
+            flash("Username or email already exists.", "danger")
+            return redirect(url_for("register"))
+        password_hash = generate_password_hash(password)
+        verify_token = str(uuid.uuid4())
+        db.execute(
+            "INSERT INTO users (username, email, password_hash, verify_token) VALUES (?, ?, ?, ?)",
+            username, email, password_hash, verify_token
+        )
+        # Send verification email
+        verify_link = url_for("verify_email", token=verify_token, _external=True)
+        plain_body = f"Click the link to verify your account: {verify_link}"
+        html_body = f"""
+        <html>
+        <head>
+            <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css' rel='stylesheet'>
+        </head>
+        <body class='bg-light'>
+            <div class='container py-5'>
+                <div class='card shadow-sm mx-auto' style='max-width: 480px;'>
+                    <div class='card-body'>
+                        <h2 class='card-title mb-3 text-center'>Verify your account</h2>
+                        <p class='mb-4'>Thank you for registering! Please click the button below to verify your email address and activate your account.</p>
+                        <div class='d-grid'>
+                            <a href='{verify_link}' class='btn btn-primary btn-lg'>Verify Account</a>
+                        </div>
+                        <hr class='my-4'>
+                        <p class='small text-muted'>If you did not request this, you can safely ignore this email.</p>
+                    </div>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        send_email(
+            email,
+            "Verify your account",
+            plain_body,
+            html_body=html_body
+        )
+        flash("Registration successful! Check your email to verify your account.", "success")
+        return redirect(url_for("login"))
+    return render_template("register.html")
+
+@app.route("/verify/<token>")
+def verify_email(token):
+    user = db.execute("SELECT * FROM users WHERE verify_token = ?", token)
+    if user:
+        db.execute("UPDATE users SET is_verified = 1, verify_token = NULL WHERE verify_token = ?", token)
+        flash("Email verified! You can now log in.", "success")
+    else:
+        flash("Invalid or expired verification link.", "danger")
+    return redirect(url_for("login"))
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        username = request.form.get("username")
+        password = request.form.get("password")
+        user = db.execute("SELECT * FROM users WHERE username = ?", username)
+        if not user or not check_password_hash(user[0]["password_hash"], password):
+            flash("Invalid username or password.", "danger")
+            return redirect(url_for("login"))
+        if not user[0]["is_verified"]:
+            flash("Please verify your email before logging in.", "warning")
+            return redirect(url_for("login"))
+        session["user_id"] = user[0]["id"]
+        session["username"] = user[0]["username"]
+        flash("Logged in successfully.", "success")
+        return redirect(url_for("index"))
+    return render_template("login.html")
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    flash("Logged out.", "info")
+    return redirect(url_for("login"))
+
+@app.route("/forgot", methods=["GET", "POST"])
+def forgot():
+    if request.method == "POST":
+        email = request.form.get("email")
+        user = db.execute("SELECT * FROM users WHERE email = ?", email)
+        if not user:
+            flash("If the email exists, a reset link will be sent.", "info")
+            return redirect(url_for("forgot"))
+        reset_token = str(uuid.uuid4())
+        db.execute("UPDATE users SET reset_token = ? WHERE email = ?", reset_token, email)
+        reset_link = url_for("reset_password", token=reset_token, _external=True)
+        send_email(
+            email,
+            "Password Reset",
+            f"Click the link to reset your password: {reset_link}"
+        )
+        flash("If the email exists, a reset link will be sent.", "info")
+        return redirect(url_for("login"))
+    return render_template("forgot.html")
+
+@app.route("/reset/<token>", methods=["GET", "POST"])
+def reset_password(token):
+    user = db.execute("SELECT * FROM users WHERE reset_token = ?", token)
+    if not user:
+        flash("Invalid or expired reset link.", "danger")
+        return redirect(url_for("login"))
+    if request.method == "POST":
+        password = request.form.get("password")
+        if not password:
+            flash("Password required.", "danger")
+            return redirect(request.url)
+        password_hash = generate_password_hash(password)
+        db.execute(
+            "UPDATE users SET password_hash = ?, reset_token = NULL WHERE reset_token = ?",
+            password_hash, token
+        )
+        flash("Password reset successful. You can now log in.", "success")
+        return redirect(url_for("login"))
+    return render_template("reset.html", token=token)
+
+# --- Protect routes (example) ---
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if "user_id" not in session:
+            flash("Please log in.", "warning")
+            return redirect(url_for("login"))
+        return f(*args, **kwargs)
+    return decorated_function
+
+# --- Add session config ---
+app.config["SESSION_PERMANENT"] = False
+app.config["SESSION_TYPE"] = "filesystem"
 
 # --- Thread-safe Status ---
 from threading import Lock
@@ -201,7 +402,9 @@ def process_video(video_id, video_path, frames_dir):
 # --- Routes ---
 
 @app.route("/", methods=["GET", "POST"])
+@login_required
 def index():
+    user_id = session["user_id"]
     if request.method == "POST":
         if "video" not in request.files:
             flash("No video file part", "danger")
@@ -217,6 +420,11 @@ def index():
             file.save(video_path)
             frames_dir = os.path.join(app.config["FRAMES_FOLDER"], video_id)
             os.makedirs(frames_dir, exist_ok=True)
+            # Save video ownership in DB
+            db.execute(
+                "INSERT INTO videos (id, filename, user_id) VALUES (?, ?, ?)",
+                video_id, video_filename, user_id
+            )
             # Start background processing
             threading.Thread(
                 target=process_video, args=(video_id, video_path, frames_dir)
@@ -225,43 +433,34 @@ def index():
         else:
             flash("Invalid file type", "danger")
             return redirect(request.url)
-    # List all processed videos
+    # List only user's processed videos
     videos = []
-    for video_file in os.listdir(app.config["UPLOAD_FOLDER"]):
-        if any(video_file.endswith(ext) for ext in ALLOWED_EXTENSIONS):
-            video_id = video_file.split("_")[0]
-            status = get_status(video_id)
-            if status and status.get("progress") == 100:
-                videos.append({
-                    "video_id": video_id,
-                    "filename": video_file,
-                    "duration": status.get("duration", 0),
-                })
+    user_videos = db.execute("SELECT * FROM videos WHERE user_id = ? ORDER BY uploaded_at DESC", user_id)
+    for v in user_videos:
+        video_id = v["id"]
+        status = get_status(video_id)
+        if status and status.get("progress") == 100:
+            videos.append({
+                "video_id": video_id,
+                "filename": v["filename"],
+                "duration": status.get("duration", 0),
+            })
     return render_template("index.html", videos=videos)
 
-@app.route("/progress/<video_id>")
-def progress(video_id):
-    return render_template("progress.html", video_id=video_id)
-
-@app.route("/progress_status/<video_id>")
-def progress_status(video_id):
-    status = get_status(video_id) or {"status": "Not found", "progress": -1}
-    return jsonify(status)
-
 @app.route("/results/<video_id>")
+@login_required
 def results(video_id):
+    user_id = session["user_id"]
+    # Check ownership
+    video = db.execute("SELECT * FROM videos WHERE id = ? AND user_id = ?", video_id, user_id)
+    if not video:
+        flash("You do not have access to this video.", "danger")
+        return redirect(url_for("index"))
     status = get_status(video_id)
     if not status or status.get("progress") != 100:
         flash("Processing not complete or failed.", "danger")
         return redirect(url_for("index"))
-    video_file = None
-    for f in os.listdir(app.config["UPLOAD_FOLDER"]):
-        if f.startswith(video_id):
-            video_file = f
-            break
-    if not video_file:
-        flash("Video file not found.", "danger")
-        return redirect(url_for("index"))
+    video_file = video[0]["filename"]
     return render_template(
         "results.html",
         video_id=video_id,
@@ -273,7 +472,14 @@ def results(video_id):
     )
 
 @app.route("/download/<video_id>/<filetype>")
+@login_required
 def download_file(video_id, filetype):
+    user_id = session["user_id"]
+    # Check ownership
+    video = db.execute("SELECT * FROM videos WHERE id = ? AND user_id = ?", video_id, user_id)
+    if not video:
+        flash("You do not have access to this video.", "danger")
+        return redirect(url_for("index"))
     status = get_status(video_id)
     if not status or status.get("progress") != 100:
         flash("Processing not complete or failed.", "danger")
@@ -293,21 +499,47 @@ def download_file(video_id, filetype):
         flash("Invalid file type", "danger")
         shutil.rmtree(temp_dir)
         return redirect(url_for("results", video_id=video_id))
-
     @after_this_request
     def cleanup(response):
         shutil.rmtree(temp_dir)
         return response
-
     return send_from_directory(temp_dir, filename, as_attachment=True)
 
 @app.route("/static/uploads/<filename>")
+@login_required
 def uploaded_file(filename):
+    # Only allow access to user's own videos
+    user_id = session["user_id"]
+    video = db.execute("SELECT * FROM videos WHERE filename = ? AND user_id = ?", filename, user_id)
+    if not video:
+        flash("You do not have access to this file.", "danger")
+        return redirect(url_for("index"))
     return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
 
 @app.route("/static/frames/<video_id>/<filename>")
+@login_required
 def frame_file(video_id, filename):
+    user_id = session["user_id"]
+    video = db.execute("SELECT * FROM videos WHERE id = ? AND user_id = ?", video_id, user_id)
+    if not video:
+        flash("You do not have access to this file.", "danger")
+        return redirect(url_for("index"))
     return send_from_directory(os.path.join(app.config["FRAMES_FOLDER"], video_id), filename)
+
+@app.route("/progress/<video_id>")
+@login_required
+def progress(video_id):
+    return render_template("progress.html", video_id=video_id)
+
+@app.route("/progress_status/<video_id>")
+@login_required
+def progress_status(video_id):
+    status = get_status(video_id) or {"status": "Not found", "progress": -1}
+    return jsonify(status)
+
+@app.route("/")
+def root_redirect():
+    return redirect(url_for("login"))
 
 # --- Templates ---
 # Place index.html, progress.html, results.html in /templates
