@@ -3,65 +3,126 @@
 {% block content %}
 <div class="row mb-4">
     <div class="col-md-8">
-        <div class="card p-3">
-            <h4 class="mb-3 text-primary">Video Playback</h4>
-            <video controls class="w-100" style="max-height:400px;">
-                <source src="{{ url_for('uploaded_file', filename=video_file) }}" type="video/mp4">
-                Your browser does not support the video tag.
-            </video>
-            <div class="mt-2 text-muted">Duration: {{ "%.1f"|format(duration) }} seconds</div>
+        <div class="card p-4">
+            <h4 class="text-gradient mb-4">
+                <i class="bi bi-play-circle-fill me-2"></i>Video Playback
+            </h4>
+            <div class="video-container rounded-4 overflow-hidden mb-3">
+                <video controls class="w-100" style="max-height:400px;">
+                    <source src="{{ url_for('uploaded_file', filename=video_file) }}" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+            <div class="d-flex align-items-center">
+                <i class="bi bi-clock me-2 text-primary"></i>
+                <span class="text-muted">Duration: {{ "%.1f"|format(duration) }} seconds</span>
+            </div>
         </div>
     </div>
     <div class="col-md-4">
-        <div class="card p-3 mb-3">
-            <h5 class="text-success">Download</h5>
-            <a href="{{ url_for('download_file', video_id=video_id, filetype='pdf') }}" class="btn btn-outline-primary btn-sm mb-2">Transcript & Summary (PDF)</a>
-            <a href="{{ url_for('download_file', video_id=video_id, filetype='docx') }}" class="btn btn-outline-info btn-sm">Transcript & Summary (Word)</a>
+        <div class="card p-4 mb-4">
+            <h5 class="text-gradient mb-3">
+                <i class="bi bi-download me-2"></i>Download
+            </h5>
+            <div class="d-grid gap-2">
+                <a href="{{ url_for('download_file', video_id=video_id, filetype='pdf') }}" 
+                   class="btn btn-outline-primary">
+                    <i class="bi bi-file-pdf me-2"></i>PDF Report
+                </a>
+                <a href="{{ url_for('download_file', video_id=video_id, filetype='docx') }}" 
+                   class="btn btn-outline-primary">
+                    <i class="bi bi-file-word me-2"></i>Word Report
+                </a>
+            </div>
         </div>
-        <div class="card p-3">
-            <h5 class="text-warning">Summary</h5>
-            <p>{{ summary }}</p>
+        <div class="card p-4">
+            <h5 class="text-gradient mb-3">
+                <i class="bi bi-journal-text me-2"></i>Summary
+            </h5>
+            <p class="mb-0">{{ summary }}</p>
         </div>
     </div>
 </div>
-<div class="row mb-4">
-    <div class="col-12">
-        <div class="card p-3">
-            <h4 class="mb-3 text-primary">Transcript</h4>
-            <pre style="white-space: pre-wrap;">{{ transcript }}</pre>
-        </div>
-    </div>
+
+<div class="card p-4 mb-4">
+    <h4 class="text-gradient mb-4">
+        <i class="bi bi-chat-quote me-2"></i>Transcript
+    </h4>
+    <pre class="transcript-text p-3 rounded-4">{{ transcript }}</pre>
 </div>
-<div class="row">
-    <h4 class="mb-3 text-primary">Sampled Frames & Descriptions</h4>
-    {% for frame, desc in frame_descs %}
-    <div class="col-md-4 mb-4">
-        <div class="card p-2">
-            <img src="{{ url_for('frame_file', video_id=video_id, filename=frame) }}" class="frame-img mb-2" alt="Frame">
-            <div class="frame-desc">{{ desc }}</div>
+
+<div class="mb-4">
+    <h4 class="text-gradient mb-4">
+        <i class="bi bi-images me-2"></i>Frame Analysis
+    </h4>
+    <div class="row g-4">
+        {% for frame, desc in frame_descs %}
+        <div class="col-md-4">
+            <div class="card frame-card h-100">
+                <img src="{{ url_for('frame_file', video_id=video_id, filename=frame) }}" 
+                     class="card-img-top frame-img" alt="Frame">
+                <div class="card-body">
+                    <p class="frame-desc mb-0">{{ desc }}</p>
+                </div>
+            </div>
         </div>
+        {% endfor %}
     </div>
-    {% endfor %}
 </div>
 {% endblock %}
+
 {% block head %}
 <style>
-    .frame-img { max-width: 100%; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);}
-    .frame-desc { background: #fffde7; border-radius: 8px; padding: 0.5rem 1rem; }
-    /* Dark mode styles */
-    body.dark-mode .frame-desc {
-        background: #333b47;
-        color: #ffe082;
+    .video-container {
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
     }
-    body.dark-mode .card {
-        background-color: #232526;
-        color: #f1f1f1;
+    .video-container:hover {
+        transform: scale(1.01);
     }
-    body.dark-mode pre {
-        background: #232526;
-        color: #ffe082;
-        border-radius: 8px;
-        padding: 1rem;
+    .transcript-text {
+        white-space: pre-wrap;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        font-family: 'Poppins', sans-serif;
+        font-size: 0.9rem;
+        line-height: 1.6;
+    }
+    .dark-mode .transcript-text {
+        background: rgba(0, 0, 0, 0.2);
+    }
+    .frame-card {
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+    .frame-card:hover {
+        transform: translateY(-5px);
+    }
+    .frame-img {
+        height: 200px;
+        object-fit: cover;
+        border-top-left-radius: 1rem;
+        border-top-right-radius: 1rem;
+    }
+    .frame-desc {
+        font-size: 0.9rem;
+        line-height: 1.5;
+    }
+    .btn-outline-primary {
+        border-color: #6366f1;
+        color: #6366f1;
+    }
+    .btn-outline-primary:hover {
+        background: linear-gradient(90deg, #6366f1, #8b5cf6);
+        border-color: transparent;
+    }
+    .dark-mode .btn-outline-primary {
+        border-color: #8b5cf6;
+        color: #8b5cf6;
+    }
+    .dark-mode .btn-outline-primary:hover {
+        background: linear-gradient(90deg, #8b5cf6, #6366f1);
+        color: white;
     }
 </style>
 {% endblock %}

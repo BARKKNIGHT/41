@@ -115,55 +115,13 @@ def register():
             flash("Username or email already exists.", "danger")
             return redirect(url_for("register"))
         password_hash = generate_password_hash(password)
-        verify_token = str(uuid.uuid4())
         db.execute(
-            "INSERT INTO users (username, email, password_hash, verify_token) VALUES (?, ?, ?, ?)",
-            username, email, password_hash, verify_token
+            "INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)",
+            username, email, password_hash
         )
-        # Send verification email
-        verify_link = url_for("verify_email", token=verify_token, _external=True)
-        plain_body = f"Click the link to verify your account: {verify_link}"
-        html_body = f"""
-<html>
-  <body style="background-color:#f8f9fa; margin:0; padding:0;">
-    <div style="max-width:480px; margin:40px auto; background:#fff; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.05); padding:32px;">
-      <h2 style="text-align:center; color:#212529; margin-bottom:24px;">Verify your account</h2>
-      <p style="color:#495057; margin-bottom:24px;">
-        Thank you for registering! Please click the button below to verify your email address and activate your account.
-      </p>
-      <div style="text-align:center; margin-bottom:32px;">
-        <a href="{verify_link}" style="display:inline-block; background:#0d6efd; color:#fff; text-decoration:none; font-size:18px; padding:12px 32px; border-radius:6px;">
-          Verify Account
-        </a>
-      </div>
-      <hr style="border:none; border-top:1px solid #dee2e6; margin:32px 0;">
-      <p style="color:#adb5bd; font-size:14px; text-align:center;">
-        If you did not request this, you can safely ignore this email.
-      </p>
-    </div>
-  </body>
-</html>
-"""
-
-        send_email(
-            email,
-            "Video Summarization - Verify your account",
-            plain_body,
-            html_body=html_body
-        )
-        flash("Registration successful! Check your email to verify your account.", "success")
+        flash("Registration successful! You can now log in.", "success")
         return redirect(url_for("login"))
     return render_template("register.html")
-
-@app.route("/verify/<token>")
-def verify_email(token):
-    user = db.execute("SELECT * FROM users WHERE verify_token = ?", token)
-    if user:
-        db.execute("UPDATE users SET is_verified = 1, verify_token = NULL WHERE verify_token = ?", token)
-        flash("Email verified! You can now log in.", "success")
-    else:
-        flash("Invalid or expired verification link.", "danger")
-    return redirect(url_for("login"))
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -173,9 +131,6 @@ def login():
         user = db.execute("SELECT * FROM users WHERE username = ?", username)
         if not user or not check_password_hash(user[0]["password_hash"], password):
             flash("Invalid username or password.", "danger")
-            return redirect(url_for("login"))
-        if not user[0]["is_verified"]:
-            flash("Please verify your email before logging in.", "warning")
             return redirect(url_for("login"))
         session["user_id"] = user[0]["id"]
         session["username"] = user[0]["username"]
@@ -188,70 +143,6 @@ def logout():
     session.clear()
     flash("Logged out.", "info")
     return redirect(url_for("login"))
-
-@app.route("/forgot", methods=["GET", "POST"])
-def forgot():
-    if request.method == "POST":
-        email = request.form.get("email")
-        user = db.execute("SELECT * FROM users WHERE email = ?", email)
-        if not user:
-            flash("If the email exists, a reset link will be sent.", "info")
-            return redirect(url_for("forgot"))
-        reset_token = str(uuid.uuid4())
-        db.execute("UPDATE users SET reset_token = ? WHERE email = ?", reset_token, email)
-        reset_link = url_for("reset_password", token=reset_token, _external=True)
-        plain_body = f"Click the link to reset your password: {reset_link}"
-        html_body = f"""
-        <html>
-        <head>
-            <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css' rel='stylesheet'>
-        </head>
-        <body class='bg-light'>
-            <div class='container py-5'>
-                <div class='card shadow-sm mx-auto' style='max-width: 480px;'>
-                    <div class='card-body'>
-                        <h2 class='card-title mb-3 text-center'>Password Reset Request</h2>
-                        <p class='mb-4'>We received a request to reset your password. Click the button below to set a new password for your account.</p>
-                        <div class='d-grid'>
-                            <a href='{reset_link}' class='btn btn-primary btn-lg'>Reset Password</a>
-                        </div>
-                        <hr class='my-4'>
-                        <p class='small text-muted'>If you did not request a password reset, you can safely ignore this email.</p>
-                    </div>
-                </div>
-            </div>
-        </body>
-        </html>
-        """
-        send_email(
-            email,
-            "Password Reset",
-            plain_body,
-            html_body=html_body
-        )
-        flash("If the email exists, a reset link will be sent.", "info")
-        return redirect(url_for("login"))
-    return render_template("forgot.html")
-
-@app.route("/reset/<token>", methods=["GET", "POST"])
-def reset_password(token):
-    user = db.execute("SELECT * FROM users WHERE reset_token = ?", token)
-    if not user:
-        flash("Invalid or expired reset link.", "danger")
-        return redirect(url_for("login"))
-    if request.method == "POST":
-        password = request.form.get("password")
-        if not password:
-            flash("Password required.", "danger")
-            return redirect(request.url)
-        password_hash = generate_password_hash(password)
-        db.execute(
-            "UPDATE users SET password_hash = ?, reset_token = NULL WHERE reset_token = ?",
-            password_hash, token
-        )
-        flash("Password reset successful. You can now log in.", "success")
-        return redirect(url_for("login"))
-    return render_template("reset.html", token=token)
 
 # --- Protect routes (example) ---
 def login_required(f):

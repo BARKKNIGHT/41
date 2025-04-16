@@ -2,43 +2,106 @@
 {% block title %}Processing Video...{% endblock %}
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-md-6 text-center">
-        <div class="card p-4">
-            <h4 class="mb-3 text-primary">Processing your video...</h4>
-            <div class="progress mb-3" style="height: 2rem;">
-                <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated"
-                     role="progressbar" style="width: 0%">0%</div>
+    <div class="col-md-8">
+        <div class="card p-5">
+            <div class="text-center mb-4">
+                <div class="processing-icon mb-4">
+                    <i class="bi bi-gear-wide-connected display-1"></i>
+                </div>
+                <h4 class="text-gradient mb-3">Processing your video...</h4>
+                <div id="status-text" class="text-muted mb-4">Initializing...</div>
+                <div class="progress-wrapper">
+                    <div class="progress" style="height: 1rem;">
+                        <div id="progress-bar" 
+                             class="progress-bar progress-bar-striped progress-bar-animated" 
+                             role="progressbar" style="width: 0%">0%</div>
+                    </div>
+                </div>
             </div>
-            <div id="status-text" class="mb-2 text-secondary"></div>
-            <a href="{{ url_for('index') }}" class="btn btn-link mt-3">Back to Home</a>
+            <div class="text-center mt-4">
+                <a href="{{ url_for('index') }}" class="btn btn-outline-primary">
+                    <i class="bi bi-house me-2"></i>Back to Home
+                </a>
+            </div>
         </div>
     </div>
 </div>
 {% endblock %}
+
+{% block head %}
+<style>
+    .processing-icon {
+        animation: pulse 2s infinite;
+    }
+    .progress-wrapper {
+        position: relative;
+        max-width: 500px;
+        margin: 0 auto;
+    }
+    .progress {
+        background: rgba(99, 102, 241, 0.1);
+        border-radius: 2rem;
+        overflow: hidden;
+    }
+    .progress-bar {
+        background: linear-gradient(90deg, #6366f1, #8b5cf6);
+        border-radius: 2rem;
+        transition: width 0.5s ease;
+    }
+    @keyframes pulse {
+        0% {
+            transform: scale(1);
+            opacity: 1;
+        }
+        50% {
+            transform: scale(1.1);
+            opacity: 0.7;
+        }
+        100% {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+    .dark-mode .progress {
+        background: rgba(139, 92, 246, 0.1);
+    }
+</style>
+{% endblock %}
+
 {% block scripts %}
 <script>
-    function pollProgress() {
-        fetch("{{ url_for('progress_status', video_id=video_id) }}")
-            .then(response => response.json())
-            .then(data => {
-                let bar = document.getElementById('progress-bar');
-                let statusText = document.getElementById('status-text');
-                if (data.progress >= 0) {
-                    bar.style.width = data.progress + "%";
-                    bar.innerText = data.progress + "%";
-                    statusText.innerText = data.status;
-                }
+function pollProgress() {
+    fetch("{{ url_for('progress_status', video_id=video_id) }}")
+        .then(response => response.json())
+        .then(data => {
+            const bar = document.getElementById('progress-bar');
+            const statusText = document.getElementById('status-text');
+            
+            if (data.progress >= 0) {
+                bar.style.width = data.progress + "%";
+                bar.innerText = data.progress + "%";
+                statusText.innerText = data.status;
+                
                 if (data.progress === 100) {
-                    window.location.href = "{{ url_for('results', video_id=video_id) }}";
+                    statusText.innerHTML = '<i class="bi bi-check-circle-fill text-success me-2"></i>Complete!';
+                    setTimeout(() => {
+                        window.location.href = "{{ url_for('results', video_id=video_id) }}";
+                    }, 1000);
                 } else if (data.progress === -1) {
-                    statusText.innerText = "Error: " + data.status;
+                    statusText.innerHTML = '<i class="bi bi-x-circle-fill text-danger me-2"></i>Error: ' + data.status;
                     bar.classList.remove('progress-bar-animated');
                     bar.classList.add('bg-danger');
                 } else {
                     setTimeout(pollProgress, 2000);
                 }
-            });
-    }
-    pollProgress();
+            }
+        })
+        .catch(() => {
+            document.getElementById('status-text').innerHTML = 
+                '<i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>Error checking status';
+            setTimeout(pollProgress, 5000);
+        });
+}
+window.onload = pollProgress;
 </script>
 {% endblock %}
