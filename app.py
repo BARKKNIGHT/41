@@ -29,6 +29,8 @@ from cs50 import SQL
 from werkzeug.security import generate_password_hash, check_password_hash
 from email.message import EmailMessage
 from functools import wraps
+from dotenv import load_dotenv
+load_dotenv()
 
 # --- Config ---
 UPLOAD_FOLDER = "static/uploads"
