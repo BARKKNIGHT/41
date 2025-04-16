@@ -147,7 +147,7 @@ def register():
 
         send_email(
             email,
-            "Verify your account",
+            "Video Summarization - Verify your account",
             plain_body,
             html_body=html_body
         )
