@@ -37,14 +37,14 @@
         </div>
         <div class="card p-4">
             <h5 class="text-gradient mb-3">
-                <i class="bi bi-journal-text me-2"></i>Summary
+                <i class="bi bi-chat-quote me-2"></i>Transcript
             </h5>
             <button class="btn btn-outline-primary w-100 mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#summaryCollapse" aria-expanded="false" aria-controls="summaryCollapse">
-                Show/Hide Summary
+                Show/Hide Transcript
             </button>
             <div class="collapse" id="summaryCollapse">
                 <div class="card card-body mt-2 summary-scrollbox">
-                    {{ summary }}
+                    {{ transcript }}
                 </div>
             </div>
         </div>
@@ -53,9 +53,9 @@
 
 <div class="card p-4 mb-4">
     <h4 class="text-gradient mb-4">
-        <i class="bi bi-chat-quote me-2"></i>Transcript
+        <i class="bi bi-journal-text me-2"></i>Summary
     </h4>
-    <pre class="transcript-text p-3 rounded-4">{{ transcript }}</pre>
+    <pre class="transcript-text p-3 rounded-4">{{ summary }}</pre>
 </div>
 
 <div class="mb-4">
