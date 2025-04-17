@@ -11,13 +11,17 @@
             </div>
             <form method="post" enctype="multipart/form-data" class="upload-form">
                 <div class="mb-4">
-                    <div class="upload-area p-4 text-center border-2 border-dashed rounded-4 position-relative">
-                        <input class="form-control position-absolute top-0 start-0 w-100 h-100 opacity-0" 
+                    <div class="upload-area p-4 text-center border-2 border-dashed rounded-4 position-relative" id="upload-area">
+                        <input id="video-input" class="form-control position-absolute top-0 start-0 w-100 h-100 opacity-0" 
                                type="file" name="video" accept="video/*" required 
                                style="cursor: pointer;">
                         <i class="bi bi-file-earmark-play display-6 mb-2"></i>
                         <p class="mb-0">Drag and drop your video here<br>or click to browse</p>
                         <small class="text-muted">Supported formats: MP4, AVI, MOV, MKV</small>
+                    </div>
+                    <div id="video-preview-container" class="mt-3" style="display:none;">
+                        <label class="form-label">Selected Video Preview:</label>
+                        <video id="video-preview" controls style="max-width:100%; border-radius: 0.5rem;"></video>
                     </div>
                 </div>
                 <div class="d-grid">
@@ -84,6 +88,10 @@
         border-color: #8b5cf6 !important;
         background: rgba(99, 102, 241, 0.05);
     }
+    .upload-area.dragover {
+        border-color: #22d3ee !important;
+        background: rgba(34, 211, 238, 0.08);
+    }
     .list-group-item {
         transition: all 0.3s ease;
         background: rgba(255, 255, 255, 0.5);
@@ -96,4 +104,49 @@
         transform: translateX(5px);
     }
 </style>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const uploadArea = document.getElementById('upload-area');
+    const videoInput = document.getElementById('video-input');
+    const videoPreview = document.getElementById('video-preview');
+    const videoPreviewContainer = document.getElementById('video-preview-container');
+
+    // Drag and drop feedback
+    ['dragenter', 'dragover'].forEach(evt => {
+        uploadArea.addEventListener(evt, e => {
+            e.preventDefault();
+            e.stopPropagation();
+            uploadArea.classList.add('dragover');
+        });
+    });
+    ['dragleave', 'drop'].forEach(evt => {
+        uploadArea.addEventListener(evt, e => {
+            e.preventDefault();
+            e.stopPropagation();
+            uploadArea.classList.remove('dragover');
+        });
+    });
+    uploadArea.addEventListener('drop', function(e) {
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+            videoInput.files = e.dataTransfer.files;
+            showVideoPreview(e.dataTransfer.files[0]);
+        }
+    });
+    videoInput.addEventListener('change', function(e) {
+        if (videoInput.files && videoInput.files[0]) {
+            showVideoPreview(videoInput.files[0]);
+        }
+    });
+    function showVideoPreview(file) {
+        if (file && file.type.startsWith('video/')) {
+            const url = URL.createObjectURL(file);
+            videoPreview.src = url;
+            videoPreviewContainer.style.display = '';
+        } else {
+            videoPreviewContainer.style.display = 'none';
+            videoPreview.src = '';
+        }
+    }
+});
+</script>
 {% endblock %}
