@@ -130,6 +130,38 @@
             border: 1px solid var(--dark-border-color);
             background-color: transparent;
         }
+        /* Ensure all text is visible in dark mode */
+        .dark-mode,
+        .dark-mode .card,
+        .dark-mode .form-label,
+        .dark-mode .card-title,
+        .dark-mode .card-text,
+        .dark-mode .navbar-text,
+        .dark-mode .page-title,
+        .dark-mode .page-header,
+        .dark-mode .page-section,
+        .dark-mode .alert,
+        .dark-mode .btn,
+        .dark-mode .list-group-item,
+        .dark-mode .text-muted,
+        .dark-mode .form-control,
+        .dark-mode .progress-bar,
+        .dark-mode .page-subtitle {
+            color: var(--dark-text) !important;
+        }
+        .dark-mode .text-muted {
+            color: #b0b8c1 !important;
+        }
+        .dark-mode .form-label {
+            color: var(--dark-text) !important;
+        }
+        .dark-mode .list-group-item {
+            color: var(--dark-text) !important;
+        }
+        .dark-mode .btn-link,
+        .dark-mode a {
+            color: var(--dark-accent-primary) !important;
+        }
 
         /* Common styles */
         .navbar {
