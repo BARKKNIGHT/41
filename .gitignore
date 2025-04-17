@@ -10,7 +10,8 @@ __pycache__/
 *.db
 
 # static
-static/
+static/frames
+static/uploads
 
 # Distribution / packaging
 .Python

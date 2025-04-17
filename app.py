@@ -267,10 +267,14 @@ def summarize(descriptions, transcript):
     return response.choices[0].message.content.strip()
 
 def generate_pdf(transcript, summary, output_path):
-    """Generate a PDF file with transcript and summary."""
+    """Generate a PDF file with transcript and summary, supporting Unicode."""
+    from fpdf import FPDF
     pdf = FPDF()
     pdf.add_page()
-    pdf.set_font("Arial", size=12)
+    # Add Unicode font (DejaVuSans)
+    font_path = os.path.join('static', 'DejaVuSans.ttf')
+    pdf.add_font('DejaVu', '', font_path, uni=True)
+    pdf.set_font('DejaVu', '', 12)
     pdf.cell(0, 10, "Transcript", ln=True)
     pdf.multi_cell(0, 10, transcript)
     pdf.cell(0, 10, "Summary", ln=True)
@@ -421,9 +425,15 @@ def download_file(video_id, filetype):
         flash("Invalid file type", "danger")
         shutil.rmtree(temp_dir)
         return redirect(url_for("results", video_id=video_id))
+    import gc
+    gc.collect()  # Force garbage collection to close file handles
+    time.sleep(0.1)  # Small delay to ensure file is closed (Windows)
     @after_this_request
     def cleanup(response):
-        shutil.rmtree(temp_dir)
+        try:
+            shutil.rmtree(temp_dir)
+        except Exception as e:
+            print(f"[WARN] Could not remove temp dir: {e}")
         return response
     return send_from_directory(temp_dir, filename, as_attachment=True)
 
