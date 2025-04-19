@@ -500,6 +500,41 @@ def delete_video(video_id):
     flash("Video deleted successfully.", "success")
     return redirect(url_for("index"))
 
+@app.route("/rename/<video_id>", methods=["POST"])
+@login_required
+def rename_video(video_id):
+    user_id = session["user_id"]
+    new_name = request.form.get("new_name", "").strip()
+    if not new_name:
+        flash("New name cannot be empty.", "danger")
+        return redirect(url_for("results", video_id=video_id))
+    # Check ownership
+    video = db.execute("SELECT * FROM videos WHERE id = ? AND user_id = ?", video_id, user_id)
+    if not video:
+        flash("You do not have access to this video.", "danger")
+        return redirect(url_for("index"))
+    old_filename = video[0]["filename"]
+    # Extract extension
+    ext = old_filename.split(".")[-1]
+    # Sanitize new name (remove extension if present)
+    if new_name.lower().endswith(f".{ext.lower()}"):
+        new_name = new_name[:-(len(ext)+1)]
+    # Compose new filename
+    new_filename = f"{video_id}_{new_name}.{ext}"
+    old_path = os.path.join(app.config["UPLOAD_FOLDER"], old_filename)
+    new_path = os.path.join(app.config["UPLOAD_FOLDER"], new_filename)
+    # Rename file
+    try:
+        if os.path.exists(old_path):
+            os.rename(old_path, new_path)
+    except Exception as e:
+        flash(f"Failed to rename file: {e}", "danger")
+        return redirect(url_for("results", video_id=video_id))
+    # Update DB
+    db.execute("UPDATE videos SET filename = ? WHERE id = ? AND user_id = ?", new_filename, video_id, user_id)
+    flash("Video renamed successfully.", "success")
+    return redirect(url_for("results", video_id=video_id))
+
 @app.route("/")
 def root_redirect():
     return redirect(url_for("login"))
