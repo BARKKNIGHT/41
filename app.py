@@ -469,6 +469,37 @@ def progress_status(video_id):
     status = get_status(video_id) or {"status": "Not found", "progress": -1}
     return jsonify(status)
 
+@app.route("/delete/<video_id>", methods=["POST"])
+@login_required
+def delete_video(video_id):
+    user_id = session["user_id"]
+    # Check ownership
+    video = db.execute("SELECT * FROM videos WHERE id = ? AND user_id = ?", video_id, user_id)
+    if not video:
+        flash("You do not have access to this video.", "danger")
+        return redirect(url_for("index"))
+    # Remove video file
+    video_file = video[0]["filename"]
+    video_path = os.path.join(app.config["UPLOAD_FOLDER"], video_file)
+    if os.path.exists(video_path):
+        try:
+            os.remove(video_path)
+        except Exception as e:
+            print(f"[WARN] Could not remove video file: {e}")
+    # Remove frames directory
+    frames_dir = os.path.join(app.config["FRAMES_FOLDER"], video_id)
+    if os.path.exists(frames_dir):
+        try:
+            shutil.rmtree(frames_dir)
+        except Exception as e:
+            print(f"[WARN] Could not remove frames dir: {e}")
+    # Remove from DB
+    db.execute("DELETE FROM videos WHERE id = ? AND user_id = ?", video_id, user_id)
+    # Remove from processing_status
+    set_status(video_id, None)
+    flash("Video deleted successfully.", "success")
+    return redirect(url_for("index"))
+
 @app.route("/")
 def root_redirect():
     return redirect(url_for("login"))
